@@ -31,7 +31,7 @@ async function scrapeHome() {
   const latest = [];
 
   // Ongoing anime (sidebar atau section)
-  $(".venz ul li, .asides .widget_otakudesu_ongoing_anime ul li").each((_, el) => {
+  $(".venz ul li, .detpost").each((_, el) => {
     const title = cleanText($(el).find(".thumbz h2, h2").text());
     const url = $(el).find("a").attr("href") || "";
     const image = $(el).find("img").attr("src") || $(el).find("img").attr("data-src") || "";
