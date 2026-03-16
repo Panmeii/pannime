@@ -22,40 +22,61 @@ function toAbsoluteUrl(url = "") {
 
 /**
  * Halaman utama: anime terbaru + ongoing
+ *
+ * Struktur HTML (dari inspect element otakudesu.blog):
+ * div#venkonten > div.vezone > div.venz > ul > li > div.detpost
+ *   ├── div.epz        → "Episode 10"  (ada span icon di dalamnya, ambil teks saja)
+ *   ├── div.epztipe    → "Senin"       (hari rilis)
+ *   ├── div.newnime    → "16 Mar"      (tanggal update)
+ *   └── div.thumb > a[href]            (link ke halaman anime)
+ *         └── div.thumbz > img[src]   (thumbnail)
+ *               (judul ada di attr title pada <a> atau di h2 di dalam thumbz)
  */
 async function scrapeHome() {
   const html = await fetchPage("/");
   const $ = cheerio.load(html);
 
-  const ongoing = [];
   const latest = [];
 
-  // Ongoing anime (sidebar atau section)
-  $(".venz ul li, .detpost").each((_, el) => {
-    const title = cleanText($(el).find(".thumbz h2, h2").text());
-    const url = $(el).find("a").attr("href") || "";
-    const image = $(el).find("img").attr("src") || $(el).find("img").attr("data-src") || "";
-    const episode = cleanText($(el).find(".epz, .epztop").first().text());
-    if (title && url) {
-      ongoing.push({ title, slug: extractSlug(url), url, image, latest_episode: episode });
-    }
-  });
-
-  // Latest update
+  // Selector utama sesuai struktur: div.venz > ul > li
   $(".venz ul li").each((_, el) => {
-    const title = cleanText($(el).find(".thumbz h2").text());
-    const url = $(el).find("a").attr("href") || "";
-    const image = $(el).find("img").attr("src") || $(el).find("img").attr("data-src") || "";
-    const episode = cleanText($(el).find(".epz").text());
-    const day = cleanText($(el).find(".epztop").text());
+    const $el = $(el);
+
+    // Judul: cek berbagai kemungkinan posisi
+    const title =
+      cleanText($el.find(".thumbz h2").text()) ||
+      cleanText($el.find(".thumb a").attr("title")) ||
+      cleanText($el.find("h2").text()) ||
+      "";
+
+    // Link anime
+    const url = $el.find(".thumb a").attr("href") || $el.find("a").first().attr("href") || "";
+
+    // Thumbnail
+    const image =
+      $el.find(".thumbz img").attr("src") ||
+      $el.find("img").attr("src") ||
+      $el.find("img").attr("data-src") ||
+      "";
+
+    // Episode: div.epz berisi span icon + teks " Episode 10"
+    // cleanText akan bersihkan whitespace berlebih
+    const episode = cleanText($el.find(".epz").text());
+
+    // Hari rilis: div.epztipe (ada icon fa-star + teks " Senin")
+    const day = cleanText($el.find(".epztipe").text());
+
+    // Tanggal update: div.newnime → "16 Mar"
+    const date = cleanText($el.find(".newnime").text());
+
     if (title && url) {
-      latest.push({ title, slug: extractSlug(url), url, image, latest_episode: episode, day });
+      latest.push({ title, slug: extractSlug(url), url, image, latest_episode: episode, day, date });
     }
   });
 
   return {
-    latest_updates: latest.length ? latest : ongoing,
-    ongoing,
+    latest_updates: latest,
+    total: latest.length,
   };
 }
 
@@ -308,6 +329,12 @@ async function scrapeSchedule() {
 
 /**
  * Ongoing anime list
+ *
+ * Struktur sama dengan home: div.venz > ul > li > div.detpost
+ *   ├── div.epz     → episode terbaru
+ *   ├── div.epztipe → hari rilis
+ *   ├── div.newnime → tanggal
+ *   └── div.thumb > a + div.thumbz > img
  */
 async function scrapeOngoing(page = 1) {
   const path = page > 1 ? `/ongoing-anime/page/${page}/` : `/ongoing-anime/`;
@@ -315,14 +342,19 @@ async function scrapeOngoing(page = 1) {
   const $ = cheerio.load(html);
 
   const animes = [];
-  $(".venz ul li, .animposx").each((_, el) => {
-    const title = cleanText($(el).find(".thumbz h2, h2, .title").text());
-    const url = $(el).find("a").first().attr("href") || "";
-    const image = $(el).find("img").attr("src") || $(el).find("img").attr("data-src") || "";
-    const episode = cleanText($(el).find(".epz, .epztop").first().text());
-    const day = cleanText($(el).find(".epztop, .day").text());
+  $(".venz ul li").each((_, el) => {
+    const $el = $(el);
+    const title =
+      cleanText($el.find(".thumbz h2").text()) ||
+      cleanText($el.find(".thumb a").attr("title")) ||
+      "";
+    const url  = $el.find(".thumb a").attr("href") || $el.find("a").first().attr("href") || "";
+    const image = $el.find(".thumbz img").attr("src") || $el.find("img").attr("src") || $el.find("img").attr("data-src") || "";
+    const episode = cleanText($el.find(".epz").text());
+    const day     = cleanText($el.find(".epztipe").text());
+    const date    = cleanText($el.find(".newnime").text());
     if (title && url) {
-      animes.push({ title, slug: extractSlug(url), url, image, latest_episode: episode, day });
+      animes.push({ title, slug: extractSlug(url), url, image, latest_episode: episode, day, date });
     }
   });
 
