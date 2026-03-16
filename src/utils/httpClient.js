@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-const BASE_URL = "https://otakudesu.cloud";
+const BASE_URL = "https://otakudesu.blog";
 
 const client = axios.create({
   baseURL: BASE_URL,
